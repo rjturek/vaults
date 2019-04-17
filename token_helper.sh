@@ -5,7 +5,19 @@ get() {
 }
 
 store() {
-  echo "store"
+  # Grab the token passed from Vault on stdin. Only expected for TH_CMD="store", 
+  STDIN_LINES=0
+  unset TOKEN
+  while IFS='$\n' read -r line; do
+    if [ $STDIN_LINES -gt 0 ]; then
+      log "More than one line passed into stdin"  
+      exit 1
+    fi
+    TOKEN=$line
+    mask_secret $TOKEN
+    STDIN_LINES+=1
+    echo $STDIN_LINES
+  done
 }
 
 erase() {
@@ -18,24 +30,19 @@ mask_secret() {
   echo "${secret:0:2}____${secret:len-2:len-1}"
 }
 
-###### Script entry
+log() {
+  LOG_FILE="$(dirname "$0")/token_helper.log"
+  echo $* >> $LOG_FILE
+   (>&2 echo $*)  
+}
 
-date >> token_helper.log
+###### Script entry
+log "-------------------------------------------------------------------------"
+log `date "+%Y-%m-%d %H:%M:%S"` "$0 invoked by Vault" 
 
 # Grab the command argument passed in by Vault. Should only be "get", "store" or "erase"
 TH_CMD=$1
-# Grab the token passed from Vault on stdin. Only expected for TH_CMD="store", 
-STDIN_LINES=0
-unset TOKEN
-while IFS='$\n' read -r line; do
-  if [ $STDIN_LINES -gt 0 ]; then
-    echo "More than one line passed into stdin"
-  fi
-  TOKEN=$line
-  mask_secret $TOKEN
-  STDIN_LINES+=1
-  echo $STDIN_LINES
-done
+
 
 echo "TH_CMD is: $TH_CMD" >> token_helper.log
 
